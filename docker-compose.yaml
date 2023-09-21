@@ -1,0 +1,43 @@
+version: '3'
+services:
+  web:
+    build:
+      target: kg-integration-image
+      context: .
+    ports:
+      - "5064:5064"
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - db
+      - web-init
+  web-init:
+    build:
+      target: alembic-image
+      context: .
+    environment:
+      - RDS_HOST=${RDS_HOST:-db}
+      - RDS_PORT=${RDS_PORT:-5432}
+      - RDS_PASSWORD=${RDS_PASSWORD:-postgresD3G5D}
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: 'docker-registry.ebrains.eu/hdc-services-external/postgres:14.1'
+    user: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_USER:-postgresD3G5D}
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
+      - ./migrations/scripts/create_kg_integration_db.sql:/docker-entrypoint-initdb.d/01.sql
+      - ./migrations/scripts/create_kg_integration_schema.sql:/docker-entrypoint-initdb.d/02.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
