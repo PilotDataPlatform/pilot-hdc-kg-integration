@@ -1,10 +1,15 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
+
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+
+from pydantic import ConfigDict
 
 from kg_integration.schemas.base import BaseSchema
 
@@ -57,22 +62,24 @@ class MetadataQueryListSchema(BaseSchema):
 
 
 class MetadataSchema(BaseSchema):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     metadata_id: UUID
     kg_instance_id: UUID
+    dataset_id: UUID
+    direction: str
     uploaded_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class MetadataListSchema(BaseSchema):
-    metadata: list[MetadataSchema]
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
+    metadata: Sequence[MetadataSchema]
 
 
 class MetadataCreateSchema(BaseSchema):
     metadata_id: UUID
     kg_instance_id: UUID
+    dataset_id: UUID
+    direction: str

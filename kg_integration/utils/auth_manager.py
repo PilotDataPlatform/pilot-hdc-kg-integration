@@ -1,9 +1,10 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
-import logging
+from typing import Any
 
 import httpx
 from fastapi import Depends
@@ -11,8 +12,7 @@ from fastapi import Depends
 from kg_integration.config import Settings
 from kg_integration.config import get_settings
 from kg_integration.core.exceptions import UnhandledException
-
-logger = logging.getLogger(__name__)
+from kg_integration.logger import logger
 
 
 class AuthManager:
@@ -20,7 +20,7 @@ class AuthManager:
         self.url = settings.AUTH_SERVICE + '/v1/'
         self.roles = ('admin', 'collaborator', 'contributor')
 
-    async def get_project_users(self, project_code: str) -> list:
+    async def get_project_users(self, project_code: str) -> list[dict[Any, str]]:
         body = {'role_names': [f'{project_code}-{role}' for role in self.roles], 'status': 'active'}
         logger.info(f'Getting all the users and their roles from project {project_code}')
         async with httpx.AsyncClient() as client:

@@ -1,8 +1,9 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
-import logging
+
 from collections.abc import Sequence
 from typing import Any
 
@@ -13,14 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kg_integration.core.db import get_db_session
+from kg_integration.core.exceptions import NotFound
+from kg_integration.core.exceptions import SpaceAlreadyExists
+from kg_integration.logger import logger
 from kg_integration.models.crud import CRUD
-
-from .spaces import Spaces
-from ...core.exceptions import NotFound
-from ...core.exceptions import SpaceAlreadyExists
-from ...schemas.space import SpaceCreateSchema
-
-logger = logging.getLogger(__name__)
+from kg_integration.models.spaces.spaces import Spaces
+from kg_integration.schemas.space import SpaceCreateSchema
 
 
 class SpacesCRUD(CRUD):

@@ -1,10 +1,14 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 import re
 from datetime import datetime
+from unittest import mock
+
+from kg_integration.utils.spaces_activity_log import KGActivityLog
 
 MYSPACE = {
     'http://schema.org/name': 'myspace',
@@ -170,18 +174,34 @@ async def test_check_multiple_spaces_missing_some(client, spaces_factory):
 
 async def test_create_space(client, external_keycloak_mock, httpx_mock):
     httpx_mock.add_response(method='PUT', url=re.compile('.*spaces/collab-hdc-test/specification'), status_code=200)
-    response = await client.post('/v1/spaces/create', params={'name': 'test', 'token': 'access_token'})
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*collabs.*'),
+        status_code=200,
+        json={
+            'collabCreationSeafileJob': 'collabCreationSeafileJob/test',
+            'collabCreationKeycloakJob': 'collabCreationKeycloakJob/test',
+            'collabCreationTemplateJob': 'refactoring/create/1676643909527-329',
+            'collabCreationXWikiJob': 'collabCreationXWikiJob/test',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
+    )
+    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(method='PUT', url=re.compile('.*collabs.*team.*users.*'), status_code=204)
+    response = await client.post(
+        '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
+    )
 
-    space = response.json()
     assert response.status_code == 201
-    assert space['name'] == 'test'
-    assert space['creator'] == 'service'
 
 
-async def test_create_duplicate_space(client, spaces_factory, external_keycloak_mock, httpx_mock):
+async def test_create_duplicate_space(client, spaces_factory, httpx_mock):
     await spaces_factory.create('test', 'tester')
-    httpx_mock.add_response(method='PUT', url=re.compile('.*spaces/collab-hdc-test/specification'), status_code=200)
-    response = await client.post('/v1/spaces/create', params={'name': 'test', 'token': 'access_token'})
+    response = await client.post(
+        '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
+    )
 
     assert response.status_code == 400
     assert 'Space was already created' in response.text
@@ -189,19 +209,33 @@ async def test_create_duplicate_space(client, spaces_factory, external_keycloak_
 
 async def test_create_space_writes_to_db(client, external_keycloak_mock, httpx_mock):
     httpx_mock.add_response(method='PUT', url=re.compile('.*spaces/collab-hdc-test/specification'), status_code=200)
-    response = await client.post('/v1/spaces/create', params={'name': 'test', 'token': 'access_token'})
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*collabs.*'),
+        status_code=200,
+        json={
+            'collabCreationSeafileJob': 'collabCreationSeafileJob/test',
+            'collabCreationKeycloakJob': 'collabCreationKeycloakJob/test',
+            'collabCreationTemplateJob': 'refactoring/create/1676643909527-329',
+            'collabCreationXWikiJob': 'collabCreationXWikiJob/test',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
+    )
+    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(method='PUT', url=re.compile('.*collabs.*team.*users.*'), status_code=204)
+    response = await client.post(
+        '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
+    )
 
-    space = response.json()
     assert response.status_code == 201
-    assert space['name'] == 'test'
-    assert space['creator'] == 'service'
-
     response = await client.get('/v1/spaces/test')
 
     space = response.json()
     assert response.status_code == 200
     assert space['name'] == 'test'
-    assert space['creator'] == 'service'
+    assert space['creator'] == 'tester'
 
 
 async def test_create_space_keycloak_not_available(client, httpx_mock):
@@ -211,7 +245,9 @@ async def test_create_space_keycloak_not_available(client, httpx_mock):
         status_code=503,
         json={'error_message': 'Error'},
     )
-    response = await client.post('/v1/spaces/create', params={'name': 'test', 'token': 'access_token'})
+    response = await client.post(
+        '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
+    )
 
     assert response.status_code == 401
     assert 'Could not get the service account token' in response.text
@@ -396,13 +432,14 @@ async def test_create_space_for_project_fails(client, keycloak_mock, httpx_mock)
     finish_time = datetime.now()
     time_diff = finish_time - start_time
 
-    assert response.status_code == 500
-    assert 'KG is down' in response.text
+    # response is always 201, due to background task
+    assert response.status_code == 201
     # backoff should retry 4 times: 1 sec, 1 sec, 2 sec, 3 sec = 7+ sec for test
     assert time_diff.total_seconds() > 7
 
 
-async def test_create_space_for_dataset(client, keycloak_mock, httpx_mock):
+@mock.patch.object(KGActivityLog, 'send_kg_on_create_event')
+async def test_create_space_for_dataset(mock_space_activity_log, client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='POST',
         url=re.compile('.*collabs.*'),
@@ -477,9 +514,27 @@ async def test_create_space_for_dataset(client, keycloak_mock, httpx_mock):
     response = await client.post('/v1/spaces/create/dataset/test', params={'token': 'access_token'})
 
     assert response.status_code == 201
+    mock_space_activity_log.assert_called_once_with('test', 'test')
 
 
-async def test_create_duplicate_space_for_dataset(client, spaces_factory):
+async def test_create_duplicate_space_for_dataset(client, httpx_mock, keycloak_mock, spaces_factory):
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*/auth/realms/hbp/protocol/openid-connect/token'),
+        status_code=200,
+        json={
+            'access_token': 'TOKEN',
+            'expires_in': 604797,
+            'refresh_expires_in': 0,
+            'token_type': 'Bearer',
+            'id_token': 'TOKEN',
+            'not-before-policy': 0,
+            'scope': 'openid profile roles email',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'tester'}}
+    )
     await spaces_factory.create('test', 'tester')
     response = await client.post('/v1/spaces/create/dataset/test', params={'token': 'access_token'})
 
@@ -487,7 +542,24 @@ async def test_create_duplicate_space_for_dataset(client, spaces_factory):
     assert 'Space was already created' in response.text
 
 
-async def test_create_duplicate_space_for_project(client, spaces_factory):
+async def test_create_duplicate_space_for_project(client, httpx_mock, keycloak_mock, spaces_factory):
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*/auth/realms/hbp/protocol/openid-connect/token'),
+        status_code=200,
+        json={
+            'access_token': 'TOKEN',
+            'expires_in': 604797,
+            'refresh_expires_in': 0,
+            'token_type': 'Bearer',
+            'id_token': 'TOKEN',
+            'not-before-policy': 0,
+            'scope': 'openid profile roles email',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'tester'}}
+    )
     await spaces_factory.create('test', 'tester')
     response = await client.post('/v1/spaces/create/project/test', params={'token': 'access_token'})
 

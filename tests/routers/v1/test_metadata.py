@@ -1,12 +1,14 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 import re
+from unittest import mock
 from uuid import uuid4
 
-import pytest
+from kg_integration.utils.spaces_activity_log import KGActivityLog
 
 PERSON_METADATA_1 = {
     'http://schema.org/name': 'Matvey',
@@ -34,7 +36,19 @@ PERSON_METADATA_2 = {
 }
 
 
-@pytest.mark.asyncio
+async def test_get_metadata_by_id(client, keycloak_mock, httpx_mock):
+    metadata_id = uuid4()
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*instances/.*'),
+        json={'data': PERSON_METADATA_1},
+    )
+    response = await client.get(f'/v1/metadata/{metadata_id}', params={'token': 'access_token'})
+
+    assert response.status_code == 200
+    assert response.json() == PERSON_METADATA_1
+
+
 async def test_list_metadata(client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='GET',
@@ -79,7 +93,6 @@ async def test_list_metadata(client, keycloak_mock, httpx_mock):
     }
 
 
-@pytest.mark.asyncio
 async def test_list_metadata_not_found(client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='GET',
@@ -95,7 +108,6 @@ async def test_list_metadata_not_found(client, keycloak_mock, httpx_mock):
     assert 'Not Found' in response.text
 
 
-@pytest.mark.asyncio
 async def test_list_metadata_remote_service_error(client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='GET',
@@ -111,7 +123,6 @@ async def test_list_metadata_remote_service_error(client, keycloak_mock, httpx_m
     assert 'test_error_message' in response.text
 
 
-@pytest.mark.asyncio
 async def test_list_metadata_not_available(client, keycloak_mock, httpx_mock):
     response = await client.get(
         '/v1/metadata/',
@@ -121,7 +132,6 @@ async def test_list_metadata_not_available(client, keycloak_mock, httpx_mock):
     assert 'Remote resource is not available' in response.text
 
 
-@pytest.mark.asyncio
 async def test_list_metadata_no_data(client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='GET',
@@ -147,7 +157,6 @@ async def test_list_metadata_no_data(client, keycloak_mock, httpx_mock):
     assert response.json() == {'result': []}
 
 
-@pytest.mark.asyncio
 async def test_list_metadata_token_exchange_failed(client, httpx_mock):
     httpx_mock.add_response(
         method='GET',
@@ -175,25 +184,8 @@ async def test_list_metadata_token_exchange_failed(client, httpx_mock):
     assert 'Remote resource is not available' in response.text
 
 
-@pytest.mark.asyncio
-async def test_get_metadata_by_id(client, metadata_factory):
-    metadata_id = uuid4()
-    kg_integration_id = uuid4()
-    await metadata_factory.create(metadata_id, kg_integration_id)
-    response = await client.get(f'/v1/metadata/{metadata_id}')
-    assert response.status_code == 200
-    assert str(metadata_id) == response.json()['metadata_id']
-
-
-@pytest.mark.asyncio
-async def test_get_metadata_by_id_not_found(client):
-    response = await client.get('/v1/metadata/11111111-2222-3333-4444-555555555555')
-    assert response.status_code == 404
-    assert 'Requested resource is not found' in response.text
-
-
-@pytest.mark.asyncio
-async def test_upload_metadata(client, keycloak_mock, httpx_mock, metadata_factory):
+@mock.patch.object(KGActivityLog, 'send_metadata_on_upload_event')
+async def test_upload_metadata(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
     httpx_mock.add_response(
         method='POST',
         url=re.compile('.*instances.*'),
@@ -207,9 +199,23 @@ async def test_upload_metadata(client, keycloak_mock, httpx_mock, metadata_facto
             'transactionId': None,
         },
     )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
     response = await client.post(
         '/v1/metadata/upload',
-        params={'space': 'myspace', 'metadata_id': str(uuid4()), 'token': 'access_token'},
+        params={
+            'space': 'myspace',
+            'metadata_id': str(uuid4()),
+            'dataset_id': str(uuid4()),
+            'uploader': 'test',
+            'token': 'access_token',
+        },
         json={
             '@type': 'https://openminds.ebrains.eu/core/testing',
             'http://schema.org/name': 'Matvey',
@@ -225,13 +231,19 @@ async def test_upload_metadata(client, keycloak_mock, httpx_mock, metadata_facto
         'space': 'myspace',
         'type': ['https://openminds.ebrains.eu/core/person'],
     }
+    mock_activity_log.assert_called_once_with(dataset_code='test', creator='test')
 
 
-@pytest.mark.asyncio
 async def test_upload_metadata_not_available(client, keycloak_mock, httpx_mock):
     response = await client.post(
         '/v1/metadata/upload',
-        params={'space': 'myspace', 'metadata_id': str(uuid4()), 'token': 'access_token'},
+        params={
+            'space': 'myspace',
+            'metadata_id': str(uuid4()),
+            'dataset_id': str(uuid4()),
+            'uploader': 'test',
+            'token': 'access_token',
+        },
         json={
             '@type': 'https://openminds.ebrains.eu/core/testing',
             'http://schema.org/name': 'Matvey',
@@ -242,9 +254,10 @@ async def test_upload_metadata_not_available(client, keycloak_mock, httpx_mock):
     assert 'Remote resource is not available' in response.text
 
 
-@pytest.mark.asyncio
-async def test_upload_metadata_creates_db_entry(client, keycloak_mock, httpx_mock, metadata_factory):
+@mock.patch.object(KGActivityLog, 'send_metadata_on_upload_event')
+async def test_upload_metadata_creates_db_entry(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
     metadata_id = str(uuid4())
+    dataset_id = str(uuid4())
     httpx_mock.add_response(
         method='POST',
         url=re.compile('.*instances.*'),
@@ -258,9 +271,23 @@ async def test_upload_metadata_creates_db_entry(client, keycloak_mock, httpx_moc
             'transactionId': None,
         },
     )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
     response = await client.post(
         '/v1/metadata/upload',
-        params={'space': 'myspace', 'metadata_id': metadata_id, 'token': 'access_token'},
+        params={
+            'space': 'myspace',
+            'metadata_id': metadata_id,
+            'dataset_id': dataset_id,
+            'uploader': 'test',
+            'token': 'access_token',
+        },
         json={
             '@type': 'https://openminds.ebrains.eu/core/testing',
             'http://schema.org/name': 'Matvey',
@@ -276,17 +303,16 @@ async def test_upload_metadata_creates_db_entry(client, keycloak_mock, httpx_moc
         'space': 'myspace',
         'type': ['https://openminds.ebrains.eu/core/person'],
     }
-
-    response = await client.get(f'/v1/metadata/{metadata_id}')
-    assert response.status_code == 200
-    assert metadata_id == response.json()['metadata_id']
+    mock_activity_log.assert_called_once_with(dataset_code='test', creator='test')
 
 
-@pytest.mark.asyncio
 async def test_update_metadata(client, keycloak_mock, httpx_mock, metadata_factory):
     metadata_id = str(uuid4())
+    dataset_id = str(uuid4())
     kg_instance_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
-    await metadata_factory.create(metadata_id=metadata_id, kg_instance_id=kg_instance_id)
+    await metadata_factory.create(
+        metadata_id=metadata_id, kg_instance_id=kg_instance_id, dataset_id=dataset_id, direction='KG'
+    )
     httpx_mock.add_response(
         method='PUT',
         url=re.compile('.*instances.*9bd75916-4dce-49f6-a70b-878cc7f36cf7.*'),
@@ -302,7 +328,13 @@ async def test_update_metadata(client, keycloak_mock, httpx_mock, metadata_facto
     )
     response = await client.put(
         f'/v1/metadata/update/{metadata_id}',
-        params={'space': 'myspace', 'token': 'access_token'},
+        params={
+            'space': 'myspace',
+            'token': 'access_token',
+            'uploader': 'test',
+            'filename': 'test.jsonld',
+            'dataset_id': dataset_id,
+        },
         json={
             '@type': 'https://openminds.ebrains.eu/core/testing',
             'http://schema.org/name': 'Matvey',
@@ -320,9 +352,10 @@ async def test_update_metadata(client, keycloak_mock, httpx_mock, metadata_facto
     }
 
 
-@pytest.mark.asyncio
-async def test_update_metadata_does_not_exist(client, keycloak_mock, httpx_mock):
+@mock.patch.object(KGActivityLog, 'send_metadata_on_upload_event')
+async def test_update_metadata_does_not_exist(mock_activity_log, client, keycloak_mock, httpx_mock):
     metadata_id = str(uuid4())
+    dataset_id = str(uuid4())
     httpx_mock.add_response(
         method='POST',
         url=re.compile('.*instances.*'),
@@ -336,9 +369,23 @@ async def test_update_metadata_does_not_exist(client, keycloak_mock, httpx_mock)
             'transactionId': None,
         },
     )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
     response = await client.put(
         f'/v1/metadata/update/{metadata_id}',
-        params={'space': 'myspace', 'token': 'access_token'},
+        params={
+            'space': 'myspace',
+            'token': 'access_token',
+            'uploader': 'test',
+            'filename': 'test.jsonld',
+            'dataset_id': dataset_id,
+        },
         json={
             '@type': 'https://openminds.ebrains.eu/core/testing',
             'http://schema.org/name': 'Matvey',
@@ -354,37 +401,49 @@ async def test_update_metadata_does_not_exist(client, keycloak_mock, httpx_mock)
         'space': 'myspace',
         'type': ['https://openminds.ebrains.eu/core/person'],
     }
-
-    response = await client.get(f'/v1/metadata/{metadata_id}')
-    assert response.status_code == 200
-    assert metadata_id == response.json()['metadata_id']
+    mock_activity_log.assert_called_once_with(dataset_code='test', target_name='test.jsonld', creator='test')
 
 
-@pytest.mark.asyncio
-async def test_delete_metadata(client, keycloak_mock, httpx_mock):
+@mock.patch.object(KGActivityLog, 'send_metadata_on_delete_event')
+async def test_delete_metadata(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
+    metadata_id = str(uuid4())
+    dataset_id = str(uuid4())
+    kg_instance_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    await metadata_factory.create(
+        metadata_id=metadata_id, kg_instance_id=kg_instance_id, dataset_id=dataset_id, direction='KG'
+    )
     httpx_mock.add_response(
         method='DELETE',
-        url=re.compile('.*instances.*b5817f36-da1e-44a2-81ed-3d769450eb65.*'),
+        url=re.compile('.*instances.*9bd75916-4dce-49f6-a70b-878cc7f36cf7.*'),
         status_code=200,
     )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
     response = await client.delete(
-        '/v1/metadata/b5817f36-da1e-44a2-81ed-3d769450eb65',
-        params={'token': 'access_token'},
+        f'/v1/metadata/{kg_instance_id}',
+        params={'username': 'test', 'token': 'access_token'},
     )
     assert response.status_code == 204
+    mock_activity_log.assert_called_once_with(
+        dataset_code='test', target_name='9bd75916-4dce-49f6-a70b-878cc7f36cf7', creator='test'
+    )
 
 
-@pytest.mark.asyncio
 async def test_delete_metadata_not_available(client, keycloak_mock, httpx_mock):
     response = await client.delete(
         '/v1/metadata/b5817f36-da1e-44a2-81ed-3d769450eb65',
-        params={'token': 'access_token'},
+        params={'username': 'test', 'token': 'access_token'},
     )
     assert response.status_code == 503
     assert 'Remote resource is not available' in response.text
 
 
-@pytest.mark.asyncio
 async def test_delete_metadata_remote_service_error(client, keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='DELETE',
@@ -394,7 +453,333 @@ async def test_delete_metadata_remote_service_error(client, keycloak_mock, httpx
     )
     response = await client.delete(
         '/v1/metadata/b5817f36-da1e-44a2-81ed-3d769450eb65',
-        params={'token': 'access_token'},
+        params={'username': 'test', 'token': 'access_token'},
     )
     assert response.status_code == 500
     assert 'test_error_message' in response.text
+
+
+@mock.patch.object(KGActivityLog, 'send_metadata_on_download_event')
+async def test_download_metadata_from_kg(mock_activity_log, client, keycloak_mock, httpx_mock):
+    kg_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    dataset_id = str(uuid4())
+    template_id = str(uuid4())
+    username = 'test'
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*dataset/default/schemaTPL/list.*'),
+        status_code=200,
+        json={'result': [{'name': 'Open_minds', 'geid': template_id}]},
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*release/status.*'),
+        status_code=200,
+        json={
+            'data': 'UNRELEASED',
+            'message': None,
+            'error': None,
+            'startTime': None,
+            'durationInMs': None,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*instances/9bd75916-4dce-49f6-a70b-878cc7f36cf7.*stage=IN_PROGRESS.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_1,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*schema$'),
+        match_json={
+            'name': kg_id + '.jsonld',
+            'dataset_geid': dataset_id,
+            'tpl_geid': template_id,
+            'standard': 'open_minds',
+            'system_defined': False,
+            'is_draft': False,
+            'content': PERSON_METADATA_1,
+            'creator': username,
+        },
+        status_code=200,
+        json={
+            'result': {
+                'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+                'name': kg_id + '.jsonld',
+                'dataset_geid': dataset_id,
+                'tpl_geid': template_id,
+                'standard': 'open_minds',
+                'system_defined': False,
+                'is_draft': False,
+                'creator': username,
+                'content': PERSON_METADATA_1,
+                'create_timestamp': '2024-09-04T08:08:53',
+                'update_timestamp': '2024-09-04T08:08:53',
+            }
+        },
+    )
+    response = await client.get(
+        f'/v1/metadata/upload/{kg_id}/{dataset_id}',
+        params={'token': 'access_token', 'uploader': username},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+        'name': kg_id + '.jsonld',
+        'dataset_geid': dataset_id,
+        'tpl_geid': template_id,
+        'standard': 'open_minds',
+        'system_defined': False,
+        'is_draft': False,
+        'creator': username,
+        'content': PERSON_METADATA_1,
+        'create_timestamp': '2024-09-04T08:08:53',
+        'update_timestamp': '2024-09-04T08:08:53',
+    }
+    mock_activity_log.assert_called_once_with(dataset_code='test', target_name=kg_id + '.jsonld', creator='test')
+
+
+@mock.patch.object(KGActivityLog, 'send_metadata_on_download_event')
+async def test_upload_metadata_from_kg_with_filename(mock_activity_log, client, keycloak_mock, httpx_mock):
+    kg_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    dataset_id = str(uuid4())
+    template_id = str(uuid4())
+    username = 'test'
+    filename = 'random_name'
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*dataset/default/schemaTPL/list.*'),
+        status_code=200,
+        json={'result': [{'name': 'Open_minds', 'geid': template_id}]},
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*release/status.*'),
+        status_code=200,
+        json={
+            'data': 'UNRELEASED',
+            'message': None,
+            'error': None,
+            'startTime': None,
+            'durationInMs': None,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*instances/9bd75916-4dce-49f6-a70b-878cc7f36cf7.*stage=IN_PROGRESS.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_1,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*schema$'),
+        match_json={
+            'name': filename + '.jsonld',
+            'dataset_geid': dataset_id,
+            'tpl_geid': template_id,
+            'standard': 'open_minds',
+            'system_defined': False,
+            'is_draft': False,
+            'content': PERSON_METADATA_1,
+            'creator': username,
+        },
+        status_code=200,
+        json={
+            'result': {
+                'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+                'name': filename + '.jsonld',
+                'dataset_geid': dataset_id,
+                'tpl_geid': template_id,
+                'standard': 'open_minds',
+                'system_defined': False,
+                'is_draft': False,
+                'creator': username,
+                'content': PERSON_METADATA_1,
+                'create_timestamp': '2024-09-04T08:08:53',
+                'update_timestamp': '2024-09-04T08:08:53',
+            }
+        },
+    )
+    response = await client.get(
+        f'/v1/metadata/upload/{kg_id}/{dataset_id}',
+        params={'token': 'access_token', 'uploader': username, 'filename': filename},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+        'name': filename + '.jsonld',
+        'dataset_geid': dataset_id,
+        'tpl_geid': template_id,
+        'standard': 'open_minds',
+        'system_defined': False,
+        'is_draft': False,
+        'creator': username,
+        'content': PERSON_METADATA_1,
+        'create_timestamp': '2024-09-04T08:08:53',
+        'update_timestamp': '2024-09-04T08:08:53',
+    }
+    mock_activity_log.assert_called_once_with(dataset_code='test', target_name='random_name', creator='test')
+
+
+async def test_upload_metadata_from_kg_doesnt_exists(client, keycloak_mock, httpx_mock):
+    kg_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    dataset_id = str(uuid4())
+    template_id = str(uuid4())
+    username = 'test'
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*dataset/default/schemaTPL/list.*'),
+        status_code=200,
+        json={'result': [{'name': 'Open_minds', 'geid': template_id}]},
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*release/status.*'),
+        status_code=404,
+    )
+
+    response = await client.get(
+        f'/v1/metadata/upload/{kg_id}/{dataset_id}',
+        params={'token': 'access_token', 'uploader': username},
+    )
+    assert response.status_code == 404
+    assert 'remote_service_exception' in response.text
+
+
+@mock.patch.object(KGActivityLog, 'send_metadata_on_refresh_event')
+async def test_refresh_metadata_from_kg(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
+    kg_id = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    dataset_id = str(uuid4())
+    template_id = str(uuid4())
+    metadata_id = str(uuid4())
+    username = 'test'
+    await metadata_factory.create(
+        metadata_id=metadata_id,
+        dataset_id=dataset_id,
+        kg_instance_id=kg_id,
+        direction='KG',
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*release/status.*'),
+        status_code=200,
+        json={
+            'data': 'UNRELEASED',
+            'message': None,
+            'error': None,
+            'startTime': None,
+            'durationInMs': None,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*instances/9bd75916-4dce-49f6-a70b-878cc7f36cf7.*stage=IN_PROGRESS.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_1,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
+    httpx_mock.add_response(
+        method='PUT',
+        url=re.compile('.*schema/.*'),
+        match_json={
+            'username': username,
+            'activity': [],
+            'content': PERSON_METADATA_1,
+        },
+        status_code=200,
+        json={
+            'result': {
+                'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+                'name': kg_id + '.jsonld',
+                'dataset_geid': dataset_id,
+                'tpl_geid': template_id,
+                'standard': 'open_minds',
+                'system_defined': False,
+                'is_draft': False,
+                'creator': username,
+                'content': PERSON_METADATA_1,
+                'create_timestamp': '2024-09-04T08:08:53',
+                'update_timestamp': '2024-09-04T08:08:53',
+            }
+        },
+    )
+
+    response = await client.get(
+        f'/v1/metadata/refresh/{metadata_id}',
+        params={'token': 'access_token', 'username': username},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+        'name': kg_id + '.jsonld',
+        'dataset_geid': dataset_id,
+        'tpl_geid': template_id,
+        'standard': 'open_minds',
+        'system_defined': False,
+        'is_draft': False,
+        'creator': username,
+        'content': PERSON_METADATA_1,
+        'create_timestamp': '2024-09-04T08:08:53',
+        'update_timestamp': '2024-09-04T08:08:53',
+    }
+    mock_activity_log.assert_called_once_with(dataset_code='test', target_name=kg_id + '.jsonld', creator='test')
+
+
+async def test_refresh_metadata_from_kg_not_found(client, keycloak_mock, httpx_mock, metadata_factory):
+    metadata_id = str(uuid4())
+    username = 'tester'
+
+    response = await client.get(
+        f'/v1/metadata/refresh/{metadata_id}',
+        params={'token': 'access_token', 'username': username},
+    )
+    assert response.status_code == 404
+    assert 'Requested resource is not found' in response.text

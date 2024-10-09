@@ -1,12 +1,14 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 import math
 from typing import TypeVar
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import conint
 from sqlalchemy import MetaData
 from sqlalchemy.orm import declarative_base
@@ -39,12 +41,11 @@ class Pagination(BaseModel):
 class Page(BaseModel):
     """Represent one page of the response."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     pagination: Pagination
     count: int
     entries: list[DBModel]
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @property
     def number(self) -> int:

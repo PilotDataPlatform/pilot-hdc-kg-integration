@@ -1,9 +1,9 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
-import logging
 from typing import Any
 
 from sqlalchemy import CursorResult
@@ -20,8 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kg_integration.core.exceptions import NotFound
 from kg_integration.models import DBModel
 from kg_integration.schemas.base import BaseSchema
-
-logger = logging.getLogger(__name__)
 
 
 class CRUD:
@@ -97,7 +95,7 @@ class CRUD:
 
     async def create(self, entry_create: BaseSchema, **kwds: Any) -> DBModel:
         """Create a new entry."""
-        values = entry_create.dict()
+        values = entry_create.model_dump()
         statement = insert(self.model).values(**(values | kwds))
         try:
             entry_pk = await self._create_one(statement)

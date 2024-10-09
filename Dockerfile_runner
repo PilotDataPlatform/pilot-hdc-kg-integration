@@ -1,0 +1,20 @@
+FROM pilotdataplatform.azurecr.io/gh-runner:2.317.0-1
+
+USER root
+
+# Install PostgreSQL development libraries
+RUN apt-get update && \
+    apt-get install -y postgresql-server-dev-all && \
+    apt-get clean
+
+ENV POETRY_VIRTUALENVS_CREATE=true \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    PYPATH=/usr/bin/python3.10
+
+COPY . /data
+
+WORKDIR /data
+
+RUN ln -s /usr/bin/python3.10 /usr/bin/python
+RUN poetry install
+#RUN poetry run pytest

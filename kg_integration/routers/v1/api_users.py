@@ -1,10 +1,13 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
+
 from uuid import UUID
 
 from fastapi import APIRouter
+from fastapi import BackgroundTasks
 from fastapi import Depends
 from fastapi import Query
 from fastapi import Response
@@ -15,7 +18,9 @@ from kg_integration.utils.collab_manager import CollabManager
 from kg_integration.utils.collab_manager import get_collab_manager
 from kg_integration.utils.dataset_manager import DatasetManager
 from kg_integration.utils.dataset_manager import get_dataset_manager
+from kg_integration.utils.helpers import HeavyTasksHelper
 from kg_integration.utils.helpers import NamespaceHelper
+from kg_integration.utils.helpers import get_heavy_tasks_helper
 from kg_integration.utils.helpers import get_namespace_helper
 from kg_integration.utils.keycloak_manager import KeycloakManager
 from kg_integration.utils.keycloak_manager import get_keycloak_manager
@@ -44,17 +49,20 @@ async def invite_user(
     role: str = Query(enum=['administrator', 'editor', 'viewer']),
     keycloak_manager: KeycloakManager = Depends(get_keycloak_manager),
     dataset_manager: DatasetManager = Depends(get_dataset_manager),
-    namespace: NamespaceHelper = Depends(get_namespace_helper),
-    collab_manager: CollabManager = Depends(get_collab_manager),
     spaces_crud: SpacesCRUD = Depends(get_spaces_crud),
+    heavy_tasks: HeavyTasksHelper = Depends(get_heavy_tasks_helper),
+    background_tasks: BackgroundTasks = BackgroundTasks,
 ):
     service_account_token = await keycloak_manager.get_service_account_token()
     dataset_codes = await dataset_manager.get_all_project_datasets(project_id=project_id)
     dataset_codes = await spaces_crud.retrieve_only_existing_names(dataset_codes)
-    for dataset_code in dataset_codes:
-        await collab_manager.add_user_to_collab(
-            namespace.for_collab(dataset_code), role, username, service_account_token
-        )
+    background_tasks.add_task(
+        heavy_tasks.add_user_task,
+        username=username,
+        role=role,
+        dataset_codes=dataset_codes,
+        service_account_token=service_account_token,
+    )
     return Response(status_code=204)
 
 
@@ -65,17 +73,20 @@ async def remove_user(
     role: str = Query(enum=['administrator', 'editor', 'viewer']),
     keycloak_manager: KeycloakManager = Depends(get_keycloak_manager),
     dataset_manager: DatasetManager = Depends(get_dataset_manager),
-    namespace: NamespaceHelper = Depends(get_namespace_helper),
-    collab_manager: CollabManager = Depends(get_collab_manager),
     spaces_crud: SpacesCRUD = Depends(get_spaces_crud),
+    heavy_tasks: HeavyTasksHelper = Depends(get_heavy_tasks_helper),
+    background_tasks: BackgroundTasks = BackgroundTasks,
 ):
     service_account_token = await keycloak_manager.get_service_account_token()
     dataset_codes = await dataset_manager.get_all_project_datasets(project_id=project_id)
     dataset_codes = await spaces_crud.retrieve_only_existing_names(dataset_codes)
-    for dataset_code in dataset_codes:
-        await collab_manager.remove_user_from_collab(
-            namespace.for_collab(dataset_code), role, username, service_account_token
-        )
+    background_tasks.add_task(
+        heavy_tasks.remove_user_task,
+        username=username,
+        role=role,
+        dataset_codes=dataset_codes,
+        service_account_token=service_account_token,
+    )
     return Response(status_code=204)
 
 
@@ -87,18 +98,19 @@ async def update_user(
     new_role: str = Query(enum=['administrator', 'editor', 'viewer']),
     keycloak_manager: KeycloakManager = Depends(get_keycloak_manager),
     dataset_manager: DatasetManager = Depends(get_dataset_manager),
-    namespace: NamespaceHelper = Depends(get_namespace_helper),
-    collab_manager: CollabManager = Depends(get_collab_manager),
     spaces_crud: SpacesCRUD = Depends(get_spaces_crud),
+    heavy_tasks: HeavyTasksHelper = Depends(get_heavy_tasks_helper),
+    background_tasks: BackgroundTasks = BackgroundTasks,
 ):
     service_account_token = await keycloak_manager.get_service_account_token()
     dataset_codes = await dataset_manager.get_all_project_datasets(project_id=project_id)
     dataset_codes = await spaces_crud.retrieve_only_existing_names(dataset_codes)
-    for dataset_code in dataset_codes:
-        await collab_manager.remove_user_from_collab(
-            namespace.for_collab(dataset_code), current_role, username, service_account_token
-        )
-        await collab_manager.add_user_to_collab(
-            namespace.for_collab(dataset_code), new_role, username, service_account_token
-        )
+    background_tasks.add_task(
+        heavy_tasks.update_user_task,
+        username=username,
+        current_role=current_role,
+        new_role=new_role,
+        dataset_codes=dataset_codes,
+        service_account_token=service_account_token,
+    )
     return Response(status_code=204)

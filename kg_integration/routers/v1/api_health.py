@@ -1,9 +1,8 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
-
-import logging
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -13,7 +12,6 @@ from fastapi.responses import JSONResponse
 from kg_integration.core.db import is_db_connected
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 @router.get('/health', summary='Healthcheck if all service dependencies are online.')

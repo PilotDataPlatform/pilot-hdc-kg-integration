@@ -1,9 +1,9 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
-import logging
 from typing import Any
 from uuid import UUID
 
@@ -17,8 +17,7 @@ from kg_integration.config import get_settings
 from kg_integration.core.exceptions import NoData
 from kg_integration.core.exceptions import RemoteServiceException
 from kg_integration.core.exceptions import UnhandledException
-
-logger = logging.getLogger(__name__)
+from kg_integration.logger import logger
 
 
 class KGManager:
@@ -36,7 +35,7 @@ class KGManager:
 
         return response
 
-    def check_response_data(self, response: Response) -> dict[Any, str] | list[dict[Any, str]]:
+    def check_response_data(self, response: Response) -> dict[Any, str] | list[dict[Any, str]] | str:
         """Check if returned response contains KG data and return it."""
         self.check_response_error(response)
 
@@ -83,16 +82,26 @@ class KGManager:
             response = await client.get(self.url + 'instances', params=params, headers=headers)
             return self.check_response_data(response)
 
-    async def get_metadata_details(self, metadata_id: UUID, stage: str, token: str) -> dict[Any, str]:
+    async def get_metadata_details(self, kg_instance_id: UUID, stage: str, token: str) -> dict[Any, str]:
         """Get metadata for given ID."""
         headers = {'Authorization': 'Bearer ' + token}
         params = {'stage': stage}
-        logger.info(f'Getting details of metadata {metadata_id}')
+        logger.info(f'Getting details of metadata {kg_instance_id}')
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(self.url + f'instances/{metadata_id}', params=params, headers=headers)
+            response = await client.get(self.url + f'instances/{kg_instance_id}', params=params, headers=headers)
             return self.check_response_data(response)
 
-    async def upload_metadata(self, space: str, data: dict[Any], token: str) -> dict[Any, str]:
+    async def check_metadata_status(self, kg_instance_id: UUID, token: str) -> str:
+        headers = {'Authorization': 'Bearer ' + token}
+        params = {'releaseTreeScope': 'TOP_INSTANCE_ONLY'}
+        logger.info(f'Checking status of metadata {kg_instance_id}')
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                self.url + f'instances/{kg_instance_id}/release/status', params=params, headers=headers
+            )
+            return self.check_response_data(response)
+
+    async def upload_metadata(self, space: str, data: dict, token: str) -> dict[Any, str]:
         """Upload metadata to given space."""
         headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}
         params = {'space': space}

@@ -1,6 +1,7 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 from abc import ABCMeta
@@ -189,3 +190,19 @@ class SpaceAlreadyExists(ServiceException):
     @property
     def details(self) -> str:
         return 'Space was already created'
+
+
+class MetadataAlreadyExists(ServiceException):
+    """Raised when trying to download already existing metadata from KG."""
+
+    @property
+    def status(self) -> int:
+        return HTTPStatus.BAD_REQUEST
+
+    @property
+    def code(self) -> str:
+        return 'already_exists'
+
+    @property
+    def details(self) -> str:
+        return 'Metadata already exists.'

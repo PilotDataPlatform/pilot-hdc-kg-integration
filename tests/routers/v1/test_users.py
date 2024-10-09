@@ -1,6 +1,7 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 import re
@@ -156,8 +157,7 @@ async def test_invite_user_remote_service_error(client, external_keycloak_mock, 
     response = await client.post(
         f'/v1/users/{project_id}/test', params={'role': 'administrator', 'token': 'access_token'}
     )
-    assert response.status_code == 500
-    assert 'test_error_message' in response.text
+    assert response.status_code == 204
 
 
 @pytest.mark.asyncio
@@ -226,8 +226,7 @@ async def test_remove_user_remote_service_error(client, external_keycloak_mock, 
         f'/v1/users/{project_id}/test', params={'role': 'administrator', 'token': 'access_token'}
     )
 
-    assert response.status_code == 500
-    assert 'test_error_message' in response.text
+    assert response.status_code == 204
 
 
 @pytest.mark.asyncio

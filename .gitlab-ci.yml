@@ -1,0 +1,49 @@
+stages:
+  - test
+  - build
+
+variables:
+  IMAGE_NAME: "$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+
+before_script:
+  - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+
+test:
+  stage: test
+  tags:
+    - shell-runner
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - .venv
+  script:
+    - >
+      docker run --rm
+      --entrypoint ''
+      -v /var/run/docker.sock:/var/run/docker.sock
+      -v $(pwd):/data
+      -w /data
+      -e POETRY_VIRTUALENVS_CREATE=true
+      -e POETRY_VIRTUALENVS_IN_PROJECT=true
+      -i docker-registry.ebrains.eu/hdc/base-image:python-3.10.10-v1
+      /bin/bash -c 'poetry install && poetry run pytest'
+  after_script:
+    # Change owner to 999 (which corresponds to "gitlab-runner") for folders created while running tests from container
+    # since default owner is "root" and "gitlab-runner" сan not cleanup them ¯\_(ツ)_/¯
+    - >
+      docker run --rm
+      --entrypoint ''
+      -v $(pwd):/data
+      -i docker-registry.ebrains.eu/hdc/base-image:python-3.10.10-v1
+      chown -R 999 /data/.venv /data/.pytest_cache /data/logs
+
+build:
+  stage: build
+  tags:
+    - shell-runner
+  script:
+    - docker build --target kg-integration-image --tag "$IMAGE_NAME:kg-integration-$IMAGE_TAG" .
+    - docker build --target alembic-image --tag "$IMAGE_NAME:alembic-$IMAGE_TAG" .
+    - docker push "$IMAGE_NAME:kg-integration-$IMAGE_TAG"
+    - docker push "$IMAGE_NAME:alembic-$IMAGE_TAG"

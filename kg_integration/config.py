@@ -1,6 +1,7 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
 import logging
@@ -8,8 +9,10 @@ from functools import lru_cache
 from typing import Any
 
 from common import VaultClient
-from pydantic import BaseSettings
-from pydantic import Extra
+from pydantic_settings import BaseSettings
+from pydantic_settings import InitSettingsSource
+from pydantic_settings import PydanticBaseSettingsSource
+from pydantic_settings import SettingsConfigDict
 from starlette.config import Config
 
 config = Config('.env')
@@ -17,7 +20,7 @@ SRV_NAMESPACE = config('APP_NAME', cast=str, default='service_kg_integration')
 CONFIG_CENTER_ENABLED = config('CONFIG_CENTER_ENABLED', cast=str, default='false')
 
 
-def load_vault_settings(settings: BaseSettings) -> dict[str, Any]:
+def load_vault_settings() -> dict[str, Any]:
     if CONFIG_CENTER_ENABLED == 'false':
         return {}
     else:
@@ -32,6 +35,24 @@ def vault_factory() -> dict:
 class Settings(BaseSettings):
     """KG integration service configuration settings."""
 
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='allow',
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        vault_settings = InitSettingsSource(settings_cls, load_vault_settings())
+        return env_settings, vault_settings, init_settings, file_secret_settings
+
     APP_NAME: str = 'kg_integration'
     VERSION: str = '1.2.1'
     HOST: str = '127.0.0.1'
@@ -39,6 +60,7 @@ class Settings(BaseSettings):
     WORKERS: int = 1
     RELOAD: bool = False
     LOGGING_LEVEL: int = logging.INFO
+    LOGGING_FORMAT: str = 'json'
     EXTERNAL_SERVICE_TIMEOUT: int = 1000
 
     RDS_SCHEMA_DEFAULT: str = 'kg_integration'
@@ -62,14 +84,11 @@ class Settings(BaseSettings):
     KG_SERVICE_ACCOUNT_ID: str = 'hdcclient-kg'
     KG_SERVICE_ACCOUNT_SECRET: str = 'notarealsecret'
 
+    KAFKA_URL: str = 'kafka-headless:9092'
+
     AUTH_SERVICE: str = 'http://auth.utility'
     DATASET_SERVICE: str = 'http://dataset.utility'
     PROJECT_SERVICE: str = 'http://project.utility'
-
-    LOG_LEVEL_DEFAULT = logging.WARN
-    LOG_LEVEL_FILE = logging.WARN
-    LOG_LEVEL_STDOUT = logging.WARN
-    LOG_LEVEL_STDERR = logging.ERROR
 
     def __init__(self, *args: Any, **kwds: Any) -> None:
         super().__init__(*args, **kwds)
@@ -83,15 +102,6 @@ class Settings(BaseSettings):
         )
         if not self.KEYCLOAK_URL.endswith('/'):
             self.KEYCLOAK_URL = self.KEYCLOAK_URL + '/'
-
-    class Config:
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
-        extra = Extra.allow
-
-        @classmethod
-        def customise_sources(cls, init_settings, env_settings, file_secret_settings):
-            return env_settings, load_vault_settings, init_settings, file_secret_settings
 
 
 @lru_cache(1)

@@ -1,28 +1,30 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
+
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
+
+from pydantic import ConfigDict
 
 from kg_integration.schemas.base import BaseSchema
 
 
 class SpaceSchema(BaseSchema):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
     creator: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
-
 
 class SpaceListSchema(BaseSchema):
-    spaces: list[SpaceSchema]
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
+    spaces: list[SpaceSchema]
 
 
 class SpaceCreateSchema(BaseSchema):

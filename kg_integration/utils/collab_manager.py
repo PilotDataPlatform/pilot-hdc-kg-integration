@@ -1,9 +1,9 @@
-# Copyright (C) 2022-2023 Indoc Systems
+# Copyright (C) 2022-Present Indoc Systems
 #
-# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE, Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
+# Licensed under the GNU AFFERO GENERAL PUBLIC LICENSE,
+# Version 3.0 (the "License") available at https://www.gnu.org/licenses/agpl-3.0.en.html.
 # You may not use this file except in compliance with the License.
 
-import logging
 from typing import Any
 
 import backoff
@@ -16,9 +16,8 @@ from kg_integration.config import get_settings
 from kg_integration.core.exceptions import NoData
 from kg_integration.core.exceptions import RemoteServiceException
 from kg_integration.core.exceptions import UnhandledException
+from kg_integration.logger import logger
 from kg_integration.schemas.collab import CollabCreationSchema
-
-logger = logging.getLogger(__name__)
 
 
 class CollabManager:
@@ -86,7 +85,7 @@ class CollabManager:
         data = CollabCreationSchema(name=name, title=title, description=description)
         logger.info(f'Creating collab {name}')
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(self.url + 'collabs', headers=headers, json=data.dict())
+            response = await client.post(self.url + 'collabs', headers=headers, json=data.model_dump())
 
             if response.status_code == 409:
                 logger.warning(f'Collab {name} was already created')
