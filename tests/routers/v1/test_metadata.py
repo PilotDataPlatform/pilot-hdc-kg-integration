@@ -184,6 +184,34 @@ async def test_list_metadata_token_exchange_failed(client, httpx_mock):
     assert 'Remote resource is not available' in response.text
 
 
+async def test_check_metadata_list(client, metadata_factory):
+    metadata_id = str(uuid4())
+    dataset_id = str(uuid4())
+    kg_instance_id = str(uuid4())
+    await metadata_factory.create(
+        metadata_id=metadata_id, kg_instance_id=kg_instance_id, dataset_id=dataset_id, direction='KG'
+    )
+    response = await client.post(
+        '/v1/metadata/',
+        json={
+            'metadata': [{'id': metadata_id}],
+        },
+    )
+    assert response.status_code == 200
+    assert kg_instance_id in response.text
+
+
+async def test_check_metadata_list_not_found(client, metadata_factory):
+    metadata_id = str(uuid4())
+    response = await client.post(
+        '/v1/metadata/',
+        json={
+            'metadata': [{'id': metadata_id}],
+        },
+    )
+    assert response.status_code == 404
+
+
 @mock.patch.object(KGActivityLog, 'send_metadata_on_upload_event')
 async def test_upload_metadata(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
     httpx_mock.add_response(
@@ -773,7 +801,7 @@ async def test_refresh_metadata_from_kg(mock_activity_log, client, keycloak_mock
     mock_activity_log.assert_called_once_with(dataset_code='test', target_name=kg_id + '.jsonld', creator='test')
 
 
-async def test_refresh_metadata_from_kg_not_found(client, keycloak_mock, httpx_mock, metadata_factory):
+async def test_refresh_metadata_from_kg_not_found(client, keycloak_mock):
     metadata_id = str(uuid4())
     username = 'tester'
 

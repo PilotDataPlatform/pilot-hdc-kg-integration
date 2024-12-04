@@ -9,8 +9,10 @@ from typing import Any
 from sqlalchemy import CursorResult
 from sqlalchemy import Executable
 from sqlalchemy import Result
+from sqlalchemy import Row
 from sqlalchemy import ScalarResult
 from sqlalchemy import Select
+from sqlalchemy import Sequence
 from sqlalchemy import delete
 from sqlalchemy import insert
 from sqlalchemy import select
@@ -66,7 +68,7 @@ class CRUD:
         result = await self.execute(statement)
         return result.inserted_primary_key[0]
 
-    async def _retrieve_one(self, statement: Executable) -> DBModel:
+    async def _retrieve_one(self, statement: Executable) -> Row:
         """Execute a statement to retrieve one entry."""
 
         result = await self.scalars(statement)
@@ -76,6 +78,17 @@ class CRUD:
             raise NotFound()
 
         return instance
+
+    async def _retrieve_all(self, statement: Executable) -> Sequence[Row]:
+        """Execute a statement to retrieve all rows."""
+
+        results = await self.scalars(statement)
+        all_rows = results.all()
+
+        if not all_rows:
+            raise NotFound()
+
+        return all_rows
 
     async def _delete_one(self, statement: Executable) -> None:
         """Execute a statement to delete one entry."""

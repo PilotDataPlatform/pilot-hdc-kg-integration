@@ -12,6 +12,7 @@ from alembic.command import downgrade
 from alembic.command import upgrade
 from alembic.config import Config
 from fastapi import FastAPI
+from httpx import ASGITransport
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -59,11 +60,6 @@ async def db_session(create_db):
         await session.commit()
     finally:
         await session.close()
-
-
-@pytest_asyncio.fixture()
-def test_db(db_session):
-    yield db_session
 
 
 @pytest_asyncio.fixture()
@@ -126,7 +122,8 @@ def app(settings, db_session) -> FastAPI:
 
 @pytest_asyncio.fixture()
 async def client(app: FastAPI) -> AsyncClient:
-    async with AsyncClient(app=app, base_url='https://kg_integration') as client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url='https://kg_integration') as client:
         yield client
 
 
