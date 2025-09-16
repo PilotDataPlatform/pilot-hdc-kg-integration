@@ -8,28 +8,8 @@ import logging
 from functools import lru_cache
 from typing import Any
 
-from common import VaultClient
 from pydantic_settings import BaseSettings
-from pydantic_settings import InitSettingsSource
-from pydantic_settings import PydanticBaseSettingsSource
 from pydantic_settings import SettingsConfigDict
-from starlette.config import Config
-
-config = Config('.env')
-SRV_NAMESPACE = config('APP_NAME', cast=str, default='service_kg_integration')
-CONFIG_CENTER_ENABLED = config('CONFIG_CENTER_ENABLED', cast=str, default='false')
-
-
-def load_vault_settings() -> dict[str, Any]:
-    if CONFIG_CENTER_ENABLED == 'false':
-        return {}
-    else:
-        return vault_factory()
-
-
-def vault_factory() -> dict:
-    vc = VaultClient(config('VAULT_URL'), config('VAULT_CRT'), config('VAULT_TOKEN'))
-    return vc.get_from_vault(SRV_NAMESPACE)
 
 
 class Settings(BaseSettings):
@@ -40,18 +20,6 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8',
         extra='allow',
     )
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        vault_settings = InitSettingsSource(settings_cls, load_vault_settings())
-        return env_settings, vault_settings, init_settings, file_secret_settings
 
     APP_NAME: str = 'kg_integration'
     VERSION: str = '1.2.1'

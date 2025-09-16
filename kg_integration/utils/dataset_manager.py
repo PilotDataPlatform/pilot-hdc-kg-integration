@@ -62,13 +62,32 @@ class DatasetManager:
 
         return [dataset['code'] for dataset in data['result']]
 
-    async def get_all_schema_templates(self) -> list[dict[str:Any]]:
+    async def get_all_schema_templates(self) -> list[dict[str, Any]]:
         logger.info('Getting all metadata templates')
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.url + 'dataset/default/schemaTPL/list',
                 params={},
                 data={},
+            )
+            data = response.json()
+
+        if response.status_code != 200:
+            logger.error('Could not get schema templates from dataset service')
+            raise UnhandledException('Could not get templates: ' + response.text)
+
+        return data
+
+    async def get_all_dataset_schemas(self, dataset_id: UUID) -> dict[str, list[dict[str, Any]]]:
+        logger.info('Getting all metadata for given dataset')
+        data = {
+            'standard': 'open_minds',
+            'dataset_geid': str(dataset_id),
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.url + 'schema/list',
+                json=data,
             )
             data = response.json()
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kg-integration"
-version = "1.3.25"
+version = "1.3.31"
 description = "Service for performing KG requests."
 authors = ["Indoc Research"]
 
@@ -17,7 +17,7 @@ greenlet = "^3.0.3"
 pydantic-settings = "^2.3.4"
 setuptools = ">=70.0"
 aiokafka = "^0.11.0"
-fastavro = "^1.9.7"
+fastavro = "1.10.0"
 
 [tool.poetry.dev-dependencies]
 SQLAlchemy-Utils = "0.38.2"
@@ -30,6 +30,7 @@ pytest-cov = "^6.0.0"
 [tool.pytest.ini_options]
 testpaths = "tests"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope="function"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

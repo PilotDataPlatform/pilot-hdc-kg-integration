@@ -432,6 +432,103 @@ async def test_update_metadata_does_not_exist(mock_activity_log, client, keycloa
     mock_activity_log.assert_called_once_with(dataset_code='test', target_name='test.jsonld', creator='test')
 
 
+@mock.patch.object(KGActivityLog, 'send_metadata_on_upload_event')
+async def test_bulk_update_metadata(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
+    dataset_id = 'ffbac5e0-f135-4057-a7bf-4bda9cdf77d8'
+    kg_instance_id_1 = '9bd75916-4dce-49f6-a70b-878cc7f36cf7'
+    kg_instance_id_2 = '3ccfd11b-8d4d-46b2-8564-5674354f553a'
+    await metadata_factory.create(
+        metadata_id='bfb392a8-65e8-4a83-91fb-f872f63b19fa',
+        kg_instance_id=kg_instance_id_1,
+        dataset_id=dataset_id,
+        direction='KG',
+    )
+    await metadata_factory.create(
+        metadata_id='357d4665-cbb7-443b-a4a7-03f38ae056b6',
+        kg_instance_id=kg_instance_id_2,
+        dataset_id=dataset_id,
+        direction='KG',
+    )
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile('.*schema/list.*'),
+        status_code=200,
+        json={
+            'result': [
+                {
+                    'geid': 'bfb392a8-65e8-4a83-91fb-f872f63b19fa',
+                    'name': 'essential.schema.json',
+                    'dataset_geid': 'ffbac5e0-f135-4057-a7bf-4bda9cdf77d8',
+                    'tpl_geid': 'bfb392a8-65e8-4a83-91fb-f872f63b19fa',
+                    'standard': 'open_minds',
+                    'system_defined': False,
+                    'is_draft': False,
+                    'creator': 'mloshakov',
+                    'content': PERSON_METADATA_1,
+                    'create_timestamp': '2025-02-04T09:45:15',
+                    'update_timestamp': '2025-02-04T09:45:15',
+                },
+                {
+                    'geid': '357d4665-cbb7-443b-a4a7-03f38ae056b6',
+                    'name': 'me_new_no_id.jsonld',
+                    'dataset_geid': 'ffbac5e0-f135-4057-a7bf-4bda9cdf77d8',
+                    'tpl_geid': '79de7000-70dd-4086-9bc7-e255e08fed69',
+                    'standard': 'open_minds',
+                    'system_defined': False,
+                    'is_draft': False,
+                    'creator': 'mloshakov',
+                    'content': PERSON_METADATA_2,
+                    'create_timestamp': '2025-02-04T09:47:03',
+                    'update_timestamp': '2025-02-04T09:47:03',
+                },
+            ]
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/ffbac5e0-f135-4057-a7bf-4bda9cdf77d.*'),
+        status_code=200,
+        json={'code': 'test'},
+    )
+    httpx_mock.add_response(
+        method='PUT',
+        url=re.compile('.*instances.*9bd75916-4dce-49f6-a70b-878cc7f36cf7.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_1,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='PUT',
+        url=re.compile('.*instances.*3ccfd11b-8d4d-46b2-8564-5674354f553a.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_2,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    response = await client.put(
+        f'/v1/metadata/update/dataset/{dataset_id}',
+        params={
+            'token': 'access_token',
+            'username': 'test',
+        },
+    )
+    assert response.status_code == 200
+    mock_activity_log.has_calls(
+        mock.call(dataset_code='test', target_name='357d4665-cbb7-443b-a4a7-03f38ae056b6', creator='test')
+    )
+
+
 @mock.patch.object(KGActivityLog, 'send_metadata_on_delete_event')
 async def test_delete_metadata(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
     metadata_id = str(uuid4())
@@ -799,6 +896,133 @@ async def test_refresh_metadata_from_kg(mock_activity_log, client, keycloak_mock
         'update_timestamp': '2024-09-04T08:08:53',
     }
     mock_activity_log.assert_called_once_with(dataset_code='test', target_name=kg_id + '.jsonld', creator='test')
+
+
+@mock.patch.object(KGActivityLog, 'send_metadata_on_refresh_event')
+async def test_bulk_refresh_metadata_from_kg(mock_activity_log, client, keycloak_mock, httpx_mock, metadata_factory):
+    kg_id_1 = str(uuid4())
+    kg_id_2 = str(uuid4())
+    dataset_id = str(uuid4())
+    metadata_id_1 = str(uuid4())
+    metadata_id_2 = str(uuid4())
+    template_id = str(uuid4())
+    username = 'test'
+    await metadata_factory.create(
+        metadata_id=metadata_id_1,
+        dataset_id=dataset_id,
+        kg_instance_id=kg_id_1,
+        direction='KG',
+    )
+    await metadata_factory.create(
+        metadata_id=metadata_id_2,
+        dataset_id=dataset_id,
+        kg_instance_id=kg_id_2,
+        direction='KG',
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*release/status.*'),
+        status_code=200,
+        json={
+            'data': 'UNRELEASED',
+            'message': None,
+            'error': None,
+            'startTime': None,
+            'durationInMs': None,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile(f'.*instances/{kg_id_1}.*stage=IN_PROGRESS.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_1,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile(f'.*instances/{kg_id_2}.*stage=IN_PROGRESS.*'),
+        status_code=200,
+        json={
+            'data': PERSON_METADATA_2,
+            'message': None,
+            'error': None,
+            'startTime': 1676042794406,
+            'durationInMs': 218,
+            'transactionId': None,
+        },
+    )
+    httpx_mock.add_response(
+        method='GET',
+        url=re.compile('.*datasets/.*'),
+        status_code=200,
+        json={
+            'code': 'test',
+        },
+    )
+    httpx_mock.add_response(
+        method='PUT',
+        url=re.compile(f'.*schema/{metadata_id_1}.*'),
+        match_json={
+            'username': username,
+            'activity': [],
+            'content': PERSON_METADATA_1,
+        },
+        status_code=200,
+        json={
+            'result': {
+                'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+                'name': kg_id_1 + '.jsonld',
+                'dataset_geid': dataset_id,
+                'tpl_geid': template_id,
+                'standard': 'open_minds',
+                'system_defined': False,
+                'is_draft': False,
+                'creator': username,
+                'content': PERSON_METADATA_1,
+                'create_timestamp': '2024-09-04T08:08:53',
+                'update_timestamp': '2024-09-04T08:08:53',
+            }
+        },
+    )
+    httpx_mock.add_response(
+        method='PUT',
+        url=re.compile(f'.*schema/{metadata_id_2}.*'),
+        match_json={
+            'username': username,
+            'activity': [],
+            'content': PERSON_METADATA_2,
+        },
+        status_code=200,
+        json={
+            'result': {
+                'geid': '2e9d768f-5c38-48e0-9436-c97199769ca9',
+                'name': kg_id_2 + '.jsonld',
+                'dataset_geid': dataset_id,
+                'tpl_geid': template_id,
+                'standard': 'open_minds',
+                'system_defined': False,
+                'is_draft': False,
+                'creator': username,
+                'content': PERSON_METADATA_2,
+                'create_timestamp': '2024-09-04T08:08:53',
+                'update_timestamp': '2024-09-04T08:08:53',
+            }
+        },
+    )
+
+    response = await client.get(
+        f'/v1/metadata/refresh/dataset/{dataset_id}',
+        params={'token': 'access_token', 'username': username},
+    )
+    assert response.status_code == 200
+    mock_activity_log.has_calls(mock.call(dataset_code='test', target_name=kg_id_1 + '.jsonld', creator='test'))
 
 
 async def test_refresh_metadata_from_kg_not_found(client, keycloak_mock):
