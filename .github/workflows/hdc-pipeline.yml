@@ -15,7 +15,7 @@ on:
 
 jobs:
   run_tests_hdc:
-    runs-on: pilot-dev-runners
+    runs-on: hdc-dev-runners-public
     env:
       POETRY_VIRTUALENVS_CREATE: true
       POETRY_VIRTUALENVS_IN_PROJECT: true

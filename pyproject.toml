@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kg-integration"
-version = "1.3.31"
+version = "1.3.32"
 description = "Service for performing KG requests."
 authors = ["Indoc Research"]
 
