@@ -44,6 +44,14 @@ class KGManager:
 
         return data
 
+    @staticmethod
+    def clean_data(data: dict[Any, Any]) -> dict[Any, Any]:
+        return {
+            k: v
+            for k, v in data.items()
+            if not isinstance(k, str) or not k.startswith('https://core.kg.ebrains.eu/vocab/meta/')
+        }
+
     async def get_spaces(self, token: str) -> list[dict[Any, str]]:
         """Get all available spaces for user."""
         headers = {'Authorization': 'Bearer ' + token}
@@ -101,18 +109,20 @@ class KGManager:
             )
             return self.check_response_data(response)
 
-    async def upload_metadata(self, space: str, data: dict, token: str) -> dict[Any, str]:
+    async def upload_metadata(self, space: str, data: dict[Any, Any], token: str) -> dict[Any, str]:
         """Upload metadata to given space."""
         headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}
         params = {'space': space}
+        data = self.clean_data(data)
         logger.info(f'Uploading metadata {data} to space {space}')
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(self.url + 'instances', params=params, json=data, headers=headers)
             return self.check_response_data(response)
 
-    async def update_metadata(self, instance_id: UUID, data: dict[Any], token: str) -> dict[Any, str]:
+    async def update_metadata(self, instance_id: UUID, data: dict[Any, Any], token: str) -> dict[Any, str]:
         """Update given instance in the KG."""
         headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}
+        data = self.clean_data(data)
         logger.info(f'Updating instance {instance_id} with metadata {data}')
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.put(self.url + f'instances/{instance_id}', json=data, headers=headers)

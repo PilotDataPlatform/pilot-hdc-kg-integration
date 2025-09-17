@@ -48,6 +48,7 @@ class ActivitySchema(BaseSchema):
 class BaseActivityLogSchema(BaseModel):
     activity_time: datetime = Field(default_factory=get_current_datetime)
     changes: list[dict[str, Any]] = []
+    network_origin: str = 'unknown'
     activity_type: str
     user: str
     container_code: str

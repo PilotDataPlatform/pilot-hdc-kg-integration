@@ -43,6 +43,13 @@ class MetadataCRUD(CRUD):
 
         return results
 
+    async def retrieve_by_dataset_id(self, dataset_id: UUID) -> Sequence[Row]:
+        statement = self.select_query.where(self.model.dataset_id == dataset_id)
+
+        results = await self._retrieve_all(statement)
+
+        return results
+
     async def delete_by_kg_instance_id(self, kg_instance_id: UUID) -> None:
         """Remove an existing entry."""
 

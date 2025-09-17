@@ -11,7 +11,7 @@ from kg_integration.utils.activity_log_manager import ActivityLogService
 class BaseKGActivityLog(ActivityLogService):
 
     topic = 'dataset.activity'
-    avro_schema_path = 'kg_integration/schemas/space.activity.avsc'
+    avro_schema_path = 'kg_integration/schemas/dataset.activity.avsc'
 
 
 class KGActivityLog(BaseKGActivityLog):
