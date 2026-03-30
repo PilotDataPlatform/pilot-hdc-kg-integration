@@ -66,13 +66,8 @@ jobs:
     if: github.event_name != 'pull_request'
     uses: PilotDataPlatform/pilot-hdc-ci-tools/.github/workflows/update_gitops_versions.yml@main
     with:
-      service_key: auth-service
+      service_key: kg-integration
       image_tag: ${{ needs.build_and_publish_hdc.outputs.app_version }}
-    secrets: inherit
-
-  deploy_hdc:
-    needs: [build_and_publish_hdc]
-    uses: PilotDataPlatform/pilot-hdc-ci-tools/.github/workflows/trigger_deployment.yml@main
-    with:
-      hdc_service_name: 'kg'
+      versions_file: clusters/dev/apps/kg-integration/values.yaml
+      yaml_path: '.base-chart.image.tag'
     secrets: inherit
