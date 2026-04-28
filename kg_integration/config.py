@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = 'kg_integration'
-    VERSION: str = '1.2.1'
+    VERSION: str = '1.3.34'
     HOST: str = '127.0.0.1'
     PORT: int = 5064
     WORKERS: int = 1
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     COLLAB_ENV: str = 'prod'
     COLLAB_PREFIX: str = 'hdc-'
 
-    KEYCLOAK_URL: str = 'https://iam.dev.hdc.humanbrainproject.eu/'
+    KEYCLOAK_URL: str = 'https://iam.dev.hdc.ebrains.eu/'
     KEYCLOAK_REALM: str = 'hdc'
     KEYCLOAK_BROKER: str = 'ebrains-keycloak'
     KEYCLOAK_EXTERNAL_URL: str = 'https://iam.ebrains.eu/auth/'
