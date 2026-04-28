@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = 'kg_integration'
-    VERSION: str = '1.2.1'
+    VERSION: str = '1.3.34'
     HOST: str = '127.0.0.1'
     PORT: int = 5064
     WORKERS: int = 1
