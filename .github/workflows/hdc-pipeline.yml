@@ -15,23 +15,31 @@ on:
 
 jobs:
   run_tests_hdc:
-    runs-on: ubuntu-22.04
+    runs-on: hdc-dev-runners-public
     env:
       POETRY_VIRTUALENVS_CREATE: true
       POETRY_VIRTUALENVS_IN_PROJECT: true
-    steps:
-      - name: Login to Internal Docker Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.HDC_DOCKER_REGISTRY_URL }}
-          username: ${{ secrets.HDC_SERVICES_EXTERNAL_ROBOT_USER }}
-          password: ${{ secrets.HDC_SERVICES_EXTERNAL_ROBOT_PASSWORD }}
 
+    steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Login to Github Packages
+        uses: docker/login-action@v1
+        with:
+          registry: 'docker-registry.ebrains.eu'
+          username: ${{ secrets.HDC_TEST_CI_USER }}
+          password: ${{ secrets.HDC_TEST_CI_PASSWORD }}
+
       - name: Pull Postgres Docker Image
         run: docker pull docker-registry.ebrains.eu/hdc-services-external/postgres:14.1
+
+      - name: Login to Github Packages
+        uses: docker/login-action@v1
+        with:
+          registry: 'docker-registry.ebrains.eu'
+          username: ${{ secrets.HDC_ROBOT_USER }}
+          password: ${{ secrets.HDC_ROBOT_PASSWORD }}
 
       - name: Run tests
         run: |
