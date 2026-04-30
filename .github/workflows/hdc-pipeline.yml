@@ -15,7 +15,7 @@ on:
 
 jobs:
   run_tests_hdc:
-    runs-on: hdc-dev-runners-public
+    runs-on: ubuntu-22.04
     env:
       POETRY_VIRTUALENVS_CREATE: true
       POETRY_VIRTUALENVS_IN_PROJECT: true
