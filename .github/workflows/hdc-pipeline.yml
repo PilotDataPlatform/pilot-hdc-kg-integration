@@ -24,8 +24,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Fix docker login v3
-        run: nslookup docker-registry.ebrains.eu
+      - name: Login to Github Packages
+        uses: docker/login-action@v4
+        continue-on-error: true
+        with:
+          registry: 'docker-registry.ebrains.eu'
+          username: ${{ secrets.HDC_TEST_CI_USER }}
+          password: ${{ secrets.HDC_TEST_CI_PASSWORD }}
 
       - name: Login to Github Packages
         uses: docker/login-action@v4
