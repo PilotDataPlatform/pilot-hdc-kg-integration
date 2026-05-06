@@ -19,6 +19,8 @@ jobs:
     with:
       min_coverage_percent: 83
       coverage_target: 'kg_integration'
+      python_version: '3.10.14'
+      docker_login: true
     secrets: inherit
 
   build_and_publish_hdc:
