@@ -67,6 +67,9 @@ class HeavyTasksHelper:
             user_data = await self.kg_manager.get_user_details(external_token)
             username = user_data.get('http://schema.org/alternateName')
 
+            # removing username from users list to avoid duplicated user addition
+            users = [u for u in users if u.get('username') != username]
+
             await self.collab_manager.assure_collab_created(
                 self.namespace.for_collab(space_name), service_account_token
             )

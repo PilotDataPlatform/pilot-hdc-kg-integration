@@ -15,43 +15,13 @@ on:
 
 jobs:
   run_tests_hdc:
-    runs-on: hdc-dev-runners-public
-    env:
-      POETRY_VIRTUALENVS_CREATE: true
-      POETRY_VIRTUALENVS_IN_PROJECT: true
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Login to Github Packages
-        uses: docker/login-action@v1
-        with:
-          registry: 'docker-registry.ebrains.eu'
-          username: ${{ secrets.HDC_TEST_CI_USER }}
-          password: ${{ secrets.HDC_TEST_CI_PASSWORD }}
-
-      - name: Pull Postgres Docker Image
-        run: docker pull docker-registry.ebrains.eu/hdc-services-external/postgres:14.1
-
-      - name: Login to Github Packages
-        uses: docker/login-action@v1
-        with:
-          registry: 'docker-registry.ebrains.eu'
-          username: ${{ secrets.HDC_ROBOT_USER }}
-          password: ${{ secrets.HDC_ROBOT_PASSWORD }}
-
-      - name: Run tests
-        run: |
-          docker run --rm \
-          --entrypoint '' \
-          -v /run/docker/docker.sock:/var/run/docker.sock \
-          -v $(pwd):/data \
-          -w /data \
-          -e POETRY_VIRTUALENVS_CREATE=true \
-          -e POETRY_VIRTUALENVS_IN_PROJECT=true \
-          -i docker-registry.ebrains.eu/hdc-services-image/base-image:python-3.10.14-v1 \
-          /bin/bash -c 'poetry install && poetry run pytest --cov=kg_integration --cov-report=term --cov-fail-under=83'
+    uses: PilotDataPlatform/pilot-hdc-ci-tools/.github/workflows/run_tests.yml@main
+    with:
+      min_coverage_percent: 83
+      coverage_target: 'kg_integration'
+      python_version: '3.10.14'
+      docker_login: true
+    secrets: inherit
 
   build_and_publish_hdc:
     needs: [run_tests_hdc]
