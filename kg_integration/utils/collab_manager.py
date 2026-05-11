@@ -100,13 +100,13 @@ class CollabManager:
     async def check_collab_creation_status(self, name: str, token: str):
         """Check if creation of Collab has finished."""
         headers = {'Authorization': 'Bearer ' + token}
-        with httpx.Client(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             logger.info(f'Checking Collab creation status for: {name}')
-            response = client.get(self.url + f'collabs/{name}', headers=headers)
-            logger.info(f'Creation status: {response.json()}')
+            response = await client.get(self.url + f'collabs/{name}', headers=headers)
+            logger.info(f'Creation status: {response.text}')
 
             if response.status_code != 200:
-                raise UnhandledException('Collab creation  is not finished yet')
+                raise UnhandledException(f'Collab {name} creation is not finished yet: {response.text}')
 
     @backoff.on_exception(backoff.fibo, RemoteServiceException, max_tries=5, jitter=None)
     async def add_user_to_collab(self, collab: str, role: str, username: str, token: str) -> Response:
