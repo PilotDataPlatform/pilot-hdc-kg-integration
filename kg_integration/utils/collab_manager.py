@@ -97,15 +97,16 @@ class CollabManager:
                 return data
 
     @backoff.on_exception(backoff.fibo, UnhandledException, max_tries=10, jitter=None)
-    async def check_collab_creation_status(self, job: str, token: str):
-        """Check if creation of Collab's jobs have finished."""
+    async def check_collab_creation_status(self, name: str, token: str):
+        """Check if creation of Collab has finished."""
         headers = {'Authorization': 'Bearer ' + token}
         with httpx.Client(timeout=self.timeout) as client:
-            logger.info(f'Checking job status for: {job}')
-            response = client.get(self.jobstatus_url + job, headers=headers)
+            logger.info(f'Checking Collab creation status for: {name}')
+            response = client.get(self.url + f'collabs/{name}', headers=headers)
+            logger.info(f'Creation status: {response.json()}')
 
             if response.status_code != 200:
-                raise UnhandledException('Collab creation job is not finished yet')
+                raise UnhandledException('Collab creation  is not finished yet')
 
     @backoff.on_exception(backoff.fibo, RemoteServiceException, max_tries=5, jitter=None)
     async def add_user_to_collab(self, collab: str, role: str, username: str, token: str) -> Response:
@@ -150,8 +151,7 @@ class CollabManager:
         """Full Collab creation workflow with assurance of Keycloak roles being created."""
         collab_jobs = await self.create_collab(name, token, title, description)
         if collab_jobs is not None:
-            keycloak_job = collab_jobs['collabCreationKeycloakJob']
-            await self.check_collab_creation_status(keycloak_job, token)
+            await self.check_collab_creation_status(name, token)
 
         return 'Success'
 

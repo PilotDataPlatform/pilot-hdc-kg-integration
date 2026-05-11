@@ -188,7 +188,9 @@ async def test_create_space(client, external_keycloak_mock, httpx_mock):
     httpx_mock.add_response(
         method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
     )
-    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*collabs.*hdc-test.*'), status_code=200, json={'message': 'success'}
+    )
     httpx_mock.add_response(method='PUT', url=re.compile('.*collabs.*team.*users.*'), status_code=204)
     response = await client.post(
         '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
@@ -223,7 +225,9 @@ async def test_create_space_writes_to_db(client, external_keycloak_mock, httpx_m
     httpx_mock.add_response(
         method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
     )
-    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*collabs.*hdc-test.*'), status_code=200, json={'message': 'success'}
+    )
     httpx_mock.add_response(method='PUT', url=re.compile('.*collabs.*team.*users.*'), status_code=204)
     response = await client.post(
         '/v1/spaces/create', params={'name': 'test', 'username': 'tester', 'token': 'access_token'}
@@ -268,7 +272,9 @@ async def test_create_space_for_project(client, keycloak_mock, external_keycloak
     httpx_mock.add_response(
         method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
     )
-    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*collabs.*hdc-test.*'), status_code=200, json={'message': 'success'}
+    )
     httpx_mock.add_response(
         method='POST',
         url=re.compile('.*admin/roles/users.*'),
@@ -368,7 +374,9 @@ async def test_create_space_for_project_fails(client, keycloak_mock, httpx_mock)
             'collabCreationXWikiJob': 'collabCreationXWikiJob/test',
         },
     )
-    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*collabs.*hdc-test.*'), status_code=200, json={'message': 'success'}
+    )
     httpx_mock.add_response(
         method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
     )
@@ -454,7 +462,9 @@ async def test_create_space_for_dataset(mock_space_activity_log, client, keycloa
     httpx_mock.add_response(
         method='GET', url=re.compile('.*users/me'), json={'data': {'http://schema.org/alternateName': 'test'}}
     )
-    httpx_mock.add_response(method='GET', url=re.compile('.*collabCreationKeycloakJob/test'), status_code=200)
+    httpx_mock.add_response(
+        method='GET', url=re.compile('.*collabs.*hdc-test.*'), status_code=200, json={'message': 'success'}
+    )
     httpx_mock.add_response(
         method='GET', url=re.compile('.*datasets/test'), status_code=200, json={'project_id': 'project_test'}
     )
